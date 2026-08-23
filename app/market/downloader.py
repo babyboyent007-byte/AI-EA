@@ -1,20 +1,25 @@
 import pandas as pd
-import ccxt
-from datetime import datetime
+from .mt5_client import MT5Client
+from ..database.repositories import CandleRepository
+from .validator import DataValidator
 
-def fetch_historical_data(symbol='EURUSD', timeframe='M15', limit=100):
-    try:
-        exchange = ccxt.kraken()
-        if '/' not in symbol:
-            if symbol == 'XAUUSD': normalized_symbol = 'PAXG/USD'
-            elif len(symbol) == 6: normalized_symbol = f'{symbol[:3]}/{symbol[3:]}'
-            else: normalized_symbol = symbol
-        else: normalized_symbol = symbol
+class DownloaderOrchestrator:
+    """Coordinates the incremental ingestion loop."""
+    def __init__(self, client: MT5Client, repo: CandleRepository):
+        self.client = client
+        self.repo = repo
+        self.validator = DataValidator()
 
-        ohlcv = exchange.fetch_ohlcv(normalized_symbol, timeframe='15m', limit=limit)
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        return df
-    except Exception as e:
-        print(f'Error fetching {symbol}: {e}')
-        return pd.DataFrame()
+    def sync_symbol(self, symbol: str, timeframe: str, timeframe_id: int):
+        """Checks DB state and fetches missing data from MT5."""
+        latest_ts = self.repo.get_latest_timestamp(symbol, timeframe)
+        print(f'[Downloader] Syncing {symbol} {timeframe}... (Last TS: {latest_ts})')
+        
+        # Fetch fresh data (using count=500 for bootstrap/incremental)
+        raw_data = self.client.fetch_candles(symbol, timeframe_id, 500)
+        
+        if not raw_data.empty and self.validator.validate_ohlc(raw_data):
+            self.repo.save_candles(raw_data)
+            print(f'[Downloader] {symbol} saved to relational store.')
+        else:
+            print(f'[Downloader] No new valid data for {symbol}.')

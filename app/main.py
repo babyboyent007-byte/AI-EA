@@ -1,32 +1,38 @@
+import time
 import sys
 import os
 from pathlib import Path
 
-# Path Alignment
-BASE_PATH = Path(__file__).resolve().parent
-sys.path.insert(0, str(BASE_PATH))
+# Force PROJECT_ROOT into path for package-level imports
+CURRENT_FILE = Path(__file__).resolve()
+PROJECT_ROOT = CURRENT_FILE.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from market.mt5_client import MT5Client
-from core.event_bus import EventBus
-from config import settings
+from app.market.mt5_client import MT5Client
+from app.database.repositories import CandleRepository
+from app.market.downloader import DownloaderOrchestrator
+from app.market.symbols import SYMBOLS, TIMEFRAMES
+from app.config.settings import settings
 
-def main():
-    print("="*50)
-    print(f" {settings.PROJECT_NAME} v0.1.0")
-    print("="*50)
+def run_ingestion_cycle():
+    print('--- [AI EA: Ingestion Cycle Started] ---')
 
-    print(f"Loading configuration...      OK ({settings.BASE_CURRENCY})")
-    print(f"Initializing Event Bus...     OK")
-    
-    bus = EventBus()
+    client = MT5Client(settings.SERVER, 0, 'pass')
+    repo = CandleRepository(settings.DB_PATH)
+    orchestrator = DownloaderOrchestrator(client, repo)
 
-    client = MT5Client(settings.SERVER, 0, "pass")
-    if client.connect():
-        print(f"Connecting to MT5...          OK ({settings.BROKER_NAME})")
-        acc = client.get_account_info()
-        print(f"Checking account...           OK (${acc['balance']})")
+    if not client.connect():
+        print('❌ MT5 Connection Failed.')
+        return
 
-    print("\n✅ Core Framework initialized successfully.")
+    try:
+        for symbol in SYMBOLS:
+            for tf_name, tf_id in TIMEFRAMES:
+                orchestrator.sync_symbol(symbol, tf_name, tf_id)
+        print('✅ Cycle Complete.')
+    finally:
+        client.shutdown()
 
 if __name__ == '__main__':
-    main()
+    run_ingestion_cycle()

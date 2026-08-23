@@ -1,19 +1,27 @@
 import pandas as pd
-from ..core.exceptions import MT5ConnectionError
+from typing import Optional
 
 class MT5Client:
-    def __init__(self, server, login, password):
+    """Public API for MetaTrader5 interaction."""
+    def __init__(self, server: str, login: int, password: str):
         self.server = server
         self.login = login
         self.password = password
         self.connected = False
 
-    def connect(self):
-        # Simulation for Colab Environment
-        print(f"📡 Connecting to {self.server}...")
+    def connect(self) -> bool:
+        # Placeholder for mt5.initialize() and mt5.login()
+        print(f'[MT5] Connecting to {self.server}...')
         self.connected = True
         return True
 
-    def get_account_info(self):
-        if not self.connected: raise MT5ConnectionError("Not connected.")
-        return {"balance": 5000.0, "equity": 5000.0, "currency": "USD"}
+    def fetch_candles(self, symbol: str, timeframe: int, count: int) -> pd.DataFrame:
+        """Wraps copy_rates_from_pos for institutional data retrieval."""
+        if not self.connected: return pd.DataFrame()
+        print(f'[MT5] Fetching {count} bars for {symbol}...')
+        # Simulated return for architecture testing
+        return pd.DataFrame()
+
+    def shutdown(self):
+        print('[MT5] Disconnected.')
+        self.connected = False
