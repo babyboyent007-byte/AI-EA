@@ -1,3 +1,4 @@
+import subprocess, sys; [subprocess.check_call([sys.executable, '-m', 'pip', 'install', m]) for m in ['joblib','matplotlib','xgboost','ccxt'] if m not in sys.modules]
 import time
 import sys
 import os
