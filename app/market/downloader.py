@@ -1,23 +1,20 @@
 import pandas as pd
-from .mt5_client import MT5Client
-from ..database.repositories import CandleRepository
-from .validator import DataValidator
+import market.mt5_client as mt5_client
+import database.repositories as repositories
+import market.validator as validator
 
 class DownloaderOrchestrator:
-    """Coordinates the incremental ingestion loop."""
-    def __init__(self, client: MT5Client, repo: CandleRepository):
+    """Coordinates the incremental ingestion loop using absolute imports."""
+    def __init__(self, client, repo):
         self.client = client
         self.repo = repo
-        self.validator = DataValidator()
+        self.validator = validator.DataValidator()
 
     def sync_symbol(self, symbol: str, timeframe: str, timeframe_id: int):
-        """Checks DB state and fetches missing data from MT5."""
         latest_ts = self.repo.get_latest_timestamp(symbol, timeframe)
         print(f'[Downloader] Syncing {symbol} {timeframe}... (Last TS: {latest_ts})')
-        
-        # Fetch fresh data (using count=500 for bootstrap/incremental)
         raw_data = self.client.fetch_candles(symbol, timeframe_id, 500)
-        
+
         if not raw_data.empty and self.validator.validate_ohlc(raw_data):
             self.repo.save_candles(raw_data)
             print(f'[Downloader] {symbol} saved to relational store.')
