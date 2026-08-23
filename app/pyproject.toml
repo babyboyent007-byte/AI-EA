@@ -1,0 +1,12 @@
+[project]
+name = "ai-ea-trading-platform"
+version = "0.1.0"
+description = "Institutional-grade decoupled AI trading system"
+authors = [{name = "babyboyent007"}]
+dependencies = [
+    "pandas",
+    "numpy",
+    "sqlalchemy",
+    "pydantic-settings",
+    "loguru"
+]
