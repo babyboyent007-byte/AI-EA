@@ -1,22 +1,20 @@
 import os
-import subprocess
 import sys
 import pandas as pd
 import joblib
+# Custom module imports
 import config
 import data_loader
 import features
 import model_factory
 
-# Ensure dependencies are present locally
-[subprocess.check_call([sys.executable, '-m', 'pip', 'install', m]) for m in ['joblib','matplotlib','xgboost','ccxt'] if m not in sys.modules]
-
 def retrain_model(symbols, timeframe):
-    # DYNAMIC ROOT DEFINITION: Fixes NameError in PyCharm
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = current_dir 
-
-    print(f"\n[AI TRAINING] Aggregating multi-asset data for retraining in: {project_root}")
+    # Robust Path Detection for PyCharm and Colab
+    # This points to the directory containing main.py
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    
+    print(f"\n[AI TRAINING] Environment: {project_root}")
+    
     all_data = []
     for symbol in symbols:
         df = data_loader.fetch_historical_data(symbol=symbol, timeframe=timeframe, limit=200)
@@ -26,6 +24,7 @@ def retrain_model(symbols, timeframe):
             all_data.append(df)
 
     if not all_data:
+        print("❌ No training data available.")
         return None
 
     combined_df = pd.concat(all_data).dropna()
@@ -35,9 +34,11 @@ def retrain_model(symbols, timeframe):
     model = factory.get_xgb_baseline()
     model.fit(combined_df[feature_cols], combined_df['target'])
 
-    # Use the locally resolved project_root
-    model_save_path = os.path.join(project_root, 'models/competition_v1.pkl')
-    os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
-    joblib.dump(model, model_save_path)
-    print(f"[AI TRAINING] Fresh model saved to: {model_save_path}")
+    # Save in a standardized 'models' subdirectory
+    model_dir = os.path.join(project_root, 'models')
+    os.makedirs(model_dir, exist_ok=True)
+    save_path = os.path.join(model_dir, 'competition_v1.pkl')
+    
+    joblib.dump(model, save_path)
+    print(f"✅ Model saved successfully: {save_path}")
     return model
